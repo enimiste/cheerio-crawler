@@ -1,12 +1,22 @@
 var _ = require('underscore');
 var debug = require('debug')('nit:crawler');
 
-function fetch(url, selector, options){
-	let opts = _.extend({
+/**
+*
+* @param string url
+* @param object selector
+* @param object options
+* @param object cheerio options
+*/
+function crawl(url, selector, options, cheerio){
+	this.url = url;
+	this.selector = selector;
+	this.cheerio_options = cheerio;
+	this.options = _.extend({
+		scope : 'body',
 		follow_links : {
-				selector : undefined,
-				domaine : undefined,
 				allow : false,
+				selector : undefined,
 				deep : undefined
 		},
 		filters : {}
@@ -54,12 +64,59 @@ function fetch(url, selector, options){
 		return this;
 	}
 
-	this.run = function (){
-		//TODO
-	}
+	this.fetch = run_fetch;
 	return this;
 }
 
+/**
+*
+*/
+function run_fetch(){
+	debug('Begin Run Crawler');
+	//TODO
+	var request = require('request');
+	var sha1 = require('js-sha1');
+	var cheerio = require('cheerio');
+	var visitedUrls = [];
+	let cheerio_options = _.extend({}, this.cheerio_options);
 
+	let _this = this;
+	request(url, function(res_err, response, html){
+		if(res_err){
+			_this.fireError(err, _this.url);
+		}else{
+			var $ = cheerio.load(html, cheerio_options);
+			let data = _.mapObject(_this.selector, function(selec){
+				//selector | filter1 | filter2
+				let parts = _.map(selec.split('|'), function(v){
+					return v.trim();
+				});
+				let selector = parts[0];
+				//selector@attribute
+				var attrs = selector.split('@');
+				var matched_elems = $(_this.options.scope).find(attrs[0]);
+				
+				return _.map(matched_elems, function(match){
+					var matched_v = undefined;
+					if(attrs.length === 2) {
+						if(_.has(match.attribs, attrs[1]))
+							matched_v = _.property(attrs[1])(match.attribs);
+						else matched_v = '';
+					}
+					else matched_v = match.text();
 
-module.exports = fetch;
+					return _.reduce(_.last(parts, parts.length - 1), function(v, filter){
+						if(_.has(_this.options.filters, filter))
+							return _this.options.filters[filter](v);
+						else
+							throw 'Filter ' + filter + ' not defined';
+					}, matched_v);
+				});
+			});
+
+			_this.fireLoad(_this.fireTransform(data));
+		}
+	});
+}
+
+module.exports = crawl;
