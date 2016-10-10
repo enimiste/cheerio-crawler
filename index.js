@@ -1,5 +1,6 @@
 var _ = require('underscore');
 var debug = require('debug')('nit:crawler');
+var S = require('string');
 
 /**
 *
@@ -19,6 +20,7 @@ function crawl(url, selector, options, cheerio){
 				selector : undefined,
 				deep : undefined
 		},
+		maps : {},
 		filters : {}
 	}, options);
 
@@ -83,11 +85,17 @@ function run_fetch(){
 	let cheerio_options = _.extend({}, this.cheerio_options);
 
 	let _this = this;
-	var endLoop = !this.options.follow_links.allow;
+	var follow_links_opts = this.options.follow_links;
+	var follow_links = follow_links_opts.allow;
+	var endLoop = !follow_links;
+
+	
+
 
 	let _url = this.url;
 	this.data = [];
 	
+	//get data for main selector
 	request(_url, function(res_err, response, html){
 		if(res_err){
 			_this.fireError(err, _this.url);
@@ -102,14 +110,23 @@ function run_fetch(){
 
 			if(endLoop) 
 				_this.fireLoad(_this.fireTransform(_this.data));
+
+			if(follow_links){
+				//get next links to follow
+				if(!_.isString(follow_links_opts.selector))
+					throw 'Follow links selector should be a string';
+
+				var links = _this.findSelector($, follow_links_opts.selector);
+				//debug(links);
+			}
 		}
-	});
+	});	
 }
 
 /**
 *
 * @param object $ cheerio instance
-* @param string selector with piped filters
+* @param string selector with piped maps
 * @param array results
 */
 function findSelector($, selec){
@@ -121,23 +138,46 @@ function findSelector($, selec){
 	//selector@attribute
 	var attrs = selector.split('@');
 	var matched_elems = $(this.options.scope).find(attrs[0]);
+	var _this = this;
 	
-	return _.map(matched_elems, function(match){
-		var matched_v = undefined;
-		if(attrs.length === 2) {
-			if(_.has(match.attribs, attrs[1]))
-				matched_v = _.property(attrs[1])(match.attribs);
-			else matched_v = '';
-		}
-		else matched_v = match.text();
+	return _.chain(matched_elems)
+			.map(function(match){
+				var matched_v = undefined;
+				if(attrs.length === 2) {
+					if(_.has(match.attribs, attrs[1]))
+						matched_v = _.property(attrs[1])(match.attribs);
+					else matched_v = '';
+				}
+				else matched_v = match.text();
 
-		return _.reduce(_.last(parts, parts.length - 1), function(v, filter){
-			if(_.has(this.options.filters, filter))
-				return this.options.filters[filter](v);
-			else
-				throw 'Filter ' + filter + ' not defined';
-		}, matched_v);
-	});
+				let actions = _.last(parts, parts.length - 1);
+				var matched_v_v = matched_v;
+				_.each(actions, function(action){
+					if(matched_v_v !== undefined){
+						if(S(action).startsWith('map_')){
+							action = S(action).replaceAll('map_', '').s;
+							//is a map function
+							if(_.has(_this.options.maps, action)){
+								action = _.property(action)(_this.options.maps);
+								matched_v_v = action(matched_v_v);
+							} else
+								throw 'Map function not found : ' + action;
+						}else{
+							//is a filter function
+							if(_.has(_this.options.filters, action)){
+								action = _.property(action)(_this.options.filters);
+								let take = action(matched_v_v);
+								if(!take) matched_v_v = undefined;
+							} else
+								throw 'Filter function not found : ' + action;
+						}
+					}
+				});
+				return matched_v_v;
+			})
+			.filter(function(elems){
+				return elems !== undefined;
+			});
 };
 
 module.exports = crawl;

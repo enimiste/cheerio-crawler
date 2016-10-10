@@ -7,35 +7,40 @@ var isUrl = require('is-url');
 
 debug('.....');
 var c = crawler('https://www.jumia.ma/', {
-			href : 'a@href | trim | domaine'
+			href : 'a@href | notEmpty | map_domaine | domaine'
 		}, {
 			follow_links : {
 				allow : false,
-				selector : 'a@href | domaine',
+				selector : 'a@href | notEmpty | map_domaine',
 				deep : 1,
 			},
-			filters : {
+			maps : {
 				trim : function(v){
 					return S(v).trim().s;
 				},
+				domaine : function (v){
+					if(S(v).startsWith('/')){
+						return 'https://www.jumia.ma' + v;
+					}
+					else return v;
+				}
+			},
+			filters : {
+				notEmpty : function (v) {
+					return !S(v).isEmpty();
+				},
 				domaine : function(v){
-					return (S(v).startsWith('https://www.jumia.ma/') || S(v).startsWith('http://www.jumia.ma/')) ? v : '';
+					return S(v).startsWith('https://www.jumia.ma/') || S(v).startsWith('http://www.jumia.ma/');
+				},
+				isUrl : function(v){
+					return isUrl(v);
 				}
 			}
 		})
 		.transform(function (res) {
 			debug('Transform data');
 			return 	_.map(res, function(page){
-						return _.chain(page.href)
-								.map(function(v){
-									if(S(v).startsWith('/')){
-										return 'https://www.jumia.ma' + v;
-									}
-									else return v;
-								})
-								.filter(function(v){
-									return isUrl(v);
-								});
+						return page.href;
 					});
 		})
 		.load(function (res){
