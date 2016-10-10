@@ -117,7 +117,7 @@ function run_fetch(){
 					throw 'Follow links selector should be a string';
 
 				var links = _this.findSelector($, follow_links_opts.selector);
-				//debug(links);
+				debug(links);
 			}
 		}
 	});	
@@ -177,7 +177,8 @@ function findSelector($, selec){
 			})
 			.filter(function(elems){
 				return elems !== undefined;
-			});
+			})
+			.value();
 };
 
 module.exports = crawl;
