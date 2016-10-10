@@ -12,7 +12,6 @@ var c = crawler('https://www.jumia.ma/', {
 			follow_links : {
 				allow : false,
 				selector : 'a@href | notEmpty | map_domaine',
-				deep : 1,
 			},
 			maps : {
 				trim : function(v){
