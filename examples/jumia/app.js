@@ -10,7 +10,7 @@ var c = crawler('https://www.jumia.ma/', {
 			href : 'a@href | trim | domaine'
 		}, {
 			follow_links : {
-				allow : true,
+				allow : false,
 				selector : 'a@href | domaine',
 				deep : 1,
 			},
@@ -25,15 +25,17 @@ var c = crawler('https://www.jumia.ma/', {
 		})
 		.transform(function (res) {
 			debug('Transform data');
-			return _.chain(res.href)
-					.map(function(v){
-						if(S(v).startsWith('/')){
-							return 'https://www.jumia.ma' + v;
-						}
-						else return v;
-					})
-					.filter(function(v){
-						return isUrl(v);
+			return 	_.map(res, function(page){
+						return _.chain(page.href)
+								.map(function(v){
+									if(S(v).startsWith('/')){
+										return 'https://www.jumia.ma' + v;
+									}
+									else return v;
+								})
+								.filter(function(v){
+									return isUrl(v);
+								});
 					});
 		})
 		.load(function (res){

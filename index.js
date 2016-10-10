@@ -86,6 +86,7 @@ function run_fetch(){
 	var endLoop = !this.options.follow_links.allow;
 
 	let _url = this.url;
+	this.data = [];
 	
 	request(_url, function(res_err, response, html){
 		if(res_err){
@@ -97,7 +98,10 @@ function run_fetch(){
 				return _this.findSelector($, selec);
 			});
 
-			if(endLoop) _this.fireLoad(_this.fireTransform(data));
+			_this.data.push(data);
+
+			if(endLoop) 
+				_this.fireLoad(_this.fireTransform(_this.data));
 		}
 	});
 }
