@@ -65,6 +65,8 @@ function crawl(url, selector, options, cheerio){
 	}
 
 	this.fetch = run_fetch;
+	this.findSelector = findSelector;
+
 	return this;
 }
 
@@ -81,48 +83,57 @@ function run_fetch(){
 	let cheerio_options = _.extend({}, this.cheerio_options);
 
 	let _this = this;
-	var endLoop = false;
+	var endLoop = !this.options.follow_links.allow;
 
 	let _url = this.url;
+	
 	request(_url, function(res_err, response, html){
 		if(res_err){
 			_this.fireError(err, _this.url);
 		}else{
 			var $ = cheerio.load(html, cheerio_options);
-			function findSelector(selec){
-				//selector | filter1 | filter2
-				let parts = _.map(selec.split('|'), function(v){
-					return v.trim();
-				});
-				let selector = parts[0];
-				//selector@attribute
-				var attrs = selector.split('@');
-				var matched_elems = $(_this.options.scope).find(attrs[0]);
-				
-				return _.map(matched_elems, function(match){
-					var matched_v = undefined;
-					if(attrs.length === 2) {
-						if(_.has(match.attribs, attrs[1]))
-							matched_v = _.property(attrs[1])(match.attribs);
-						else matched_v = '';
-					}
-					else matched_v = match.text();
-
-					return _.reduce(_.last(parts, parts.length - 1), function(v, filter){
-						if(_.has(_this.options.filters, filter))
-							return _this.options.filters[filter](v);
-						else
-							throw 'Filter ' + filter + ' not defined';
-					}, matched_v);
-				});
-			};
+			
 			let data = _.mapObject(_this.selector, function(selec){
-				return findSelector(selec);
+				return _this.findSelector($, selec);
 			});
 
 			if(endLoop) _this.fireLoad(_this.fireTransform(data));
 		}
 	});
 }
+
+/**
+*
+* @param object $ cheerio instance
+* @param string selector with piped filters
+* @param array results
+*/
+function findSelector($, selec){
+	//selector | filter1 | filter2
+	let parts = _.map(selec.split('|'), function(v){
+		return v.trim();
+	});
+	let selector = parts[0];
+	//selector@attribute
+	var attrs = selector.split('@');
+	var matched_elems = $(this.options.scope).find(attrs[0]);
+	
+	return _.map(matched_elems, function(match){
+		var matched_v = undefined;
+		if(attrs.length === 2) {
+			if(_.has(match.attribs, attrs[1]))
+				matched_v = _.property(attrs[1])(match.attribs);
+			else matched_v = '';
+		}
+		else matched_v = match.text();
+
+		return _.reduce(_.last(parts, parts.length - 1), function(v, filter){
+			if(_.has(this.options.filters, filter))
+				return this.options.filters[filter](v);
+			else
+				throw 'Filter ' + filter + ' not defined';
+		}, matched_v);
+	});
+};
 
 module.exports = crawl;
