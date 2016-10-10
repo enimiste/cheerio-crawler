@@ -81,12 +81,15 @@ function run_fetch(){
 	let cheerio_options = _.extend({}, this.cheerio_options);
 
 	let _this = this;
-	request(url, function(res_err, response, html){
+	var endLoop = false;
+
+	let _url = this.url;
+	request(_url, function(res_err, response, html){
 		if(res_err){
 			_this.fireError(err, _this.url);
 		}else{
 			var $ = cheerio.load(html, cheerio_options);
-			let data = _.mapObject(_this.selector, function(selec){
+			function findSelector(selec){
 				//selector | filter1 | filter2
 				let parts = _.map(selec.split('|'), function(v){
 					return v.trim();
@@ -112,9 +115,12 @@ function run_fetch(){
 							throw 'Filter ' + filter + ' not defined';
 					}, matched_v);
 				});
+			};
+			let data = _.mapObject(_this.selector, function(selec){
+				return findSelector(selec);
 			});
 
-			_this.fireLoad(_this.fireTransform(data));
+			if(endLoop) _this.fireLoad(_this.fireTransform(data));
 		}
 	});
 }

@@ -10,7 +10,7 @@ var c = crawler('https://www.jumia.ma/', {
 			href : 'a@href | trim | domaine'
 		}, {
 			follow_links : {
-				allow : false,
+				allow : true,
 				selector : 'a@href | domaine',
 				deep : 1,
 			},
